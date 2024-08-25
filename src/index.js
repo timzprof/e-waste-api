@@ -194,7 +194,7 @@ app.post("/notify-user", async (req, res, next) => {
 });
 
 // Error Middleware
-app.use((error, _req, res) => {
+app.use((error, _req, res, _next) => {
   const responseObj = {
     status: "error",
     message: "Something went wrong",
