@@ -79,6 +79,17 @@ app.get("/home", (_req, res) => {
 // Docs Route
 app.use("/docs", swaggerUI.serve, swaggerUI.setup(swaggerSpec));
 
+// Log distance
+app.use("/distance", async (req, res, next) => {
+  try {
+    const { distance } = req.body;
+    console.log(`New Distance: ${distance} cm`);
+    res.send("Distance Logged");
+  } catch (error) {
+    return next(error);
+  }
+});
+
 // Register User
 app.post("/register-user", async (req, res, next) => {
   try {
