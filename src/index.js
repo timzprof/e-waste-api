@@ -80,7 +80,7 @@ app.get("/home", (_req, res) => {
 app.use("/docs", swaggerUI.serve, swaggerUI.setup(swaggerSpec));
 
 // Log distance
-app.use("/distance", async (req, res, next) => {
+app.post("/distance", async (req, res, next) => {
   try {
     const { distance } = req.body;
     console.log(`New Distance: ${distance} cm`);
