@@ -79,12 +79,26 @@ app.get("/home", (_req, res) => {
 // Docs Route
 app.use("/docs", swaggerUI.serve, swaggerUI.setup(swaggerSpec));
 
-// Log distance
-app.post("/distance", async (req, res, next) => {
+// Update bin fill level
+app.patch("/update-fill-level", async (req, res, next) => {
   try {
-    const { distance } = req.body;
-    console.log(`New Distance: ${distance} cm`);
-    res.send("Distance Logged");
+    const { percentage, sensorId } = req.body;
+    const bin = await BinModel.findOne({ sensorId });
+
+    if (!bin) {
+      return res.status(404).send({
+        status: "error",
+        message: "Bin not found",
+      });
+    }
+
+    // Update fill level
+    await BinModel.updateOne({ sensorId }, { fillPercentage: percentage });
+
+    console.log(`New Fill Level: ${percentage}%`);
+    res.status(200).send({
+      message: "Fill level Updated",
+    });
   } catch (error) {
     return next(error);
   }
@@ -150,7 +164,7 @@ app.post("/login", async (req, res, next) => {
     const token = setToken(publicUser);
 
     // Update user device messaging token
-    await user.updateOne({ token: messagingToken });
+    await UserModel.updateOne({ email }, { token: messagingToken });
 
     return res.status(200).send({
       message: "User Login successful",

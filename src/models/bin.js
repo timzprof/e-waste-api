@@ -9,6 +9,7 @@ const BinSchema = new Schema(
       default: null,
     },
     sensorId: { type: String, required: true },
+    fillPercentage: { type: Number, default: 0 },
     isActive: { type: Boolean, default: false },
   },
   {
