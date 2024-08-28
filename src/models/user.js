@@ -22,8 +22,6 @@ const UserSchema = new Schema(
 );
 
 UserSchema.pre("save", function (next) {
-  debugLogger("Initiating User Pre-save Function");
-
   // only hash the password if it has been modified (or is new)
   if (!this.isModified("password")) return next();
 
