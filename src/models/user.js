@@ -49,7 +49,7 @@ UserSchema.methods.verifyPassword = function (password) {
 
 UserSchema.methods.getPublicFields = function () {
   return {
-    _id: this._id,
+    id: this._id,
     name: this.name,
     email: this.email,
     sensorId: this.sensorId,

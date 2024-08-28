@@ -17,4 +17,14 @@ const BinSchema = new Schema(
   }
 );
 
+BinSchema.methods.getPublicFields = function () {
+  return {
+    id: this._id,
+    userId: this.user,
+    fillPercentage: this.fillPercentage,
+    sensorId: this.sensorId,
+    isActive: this.isActive,
+  };
+};
+
 export default model("Bin", BinSchema);

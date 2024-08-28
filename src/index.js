@@ -1,3 +1,5 @@
+import { createServer } from "http";
+import { Server } from "socket.io";
 import express from "express";
 import helmet from "helmet";
 import compression from "compression";
@@ -16,16 +18,25 @@ import UserModel from "./models/user.js";
 import BinModel from "./models/bin.js";
 
 // Utility
-import { logger, prettyStringify, APIError, setToken } from "./util/index.js";
+import {
+  logger,
+  prettyStringify,
+  APIError,
+  setToken,
+  getAccessToken,
+} from "./util/index.js";
 
 //Config Variables
 config();
-export const URL_PREFIX = "/api/v1";
 
 // Swagger Specification
 const swaggerSpec = swaggerJsDoc(options);
 
 const app = express();
+
+// Server
+const httpServer = createServer(app);
+const io = new Server(httpServer);
 
 // Setup Middlewares
 app.use(express.json());
@@ -175,7 +186,56 @@ app.post("/login", async (req, res, next) => {
   }
 });
 
+// Fetch Bin with specific snesor ID
+app.get("/bin", async (req, res, next) => {
+  const { sensorId } = req.query;
+
+  const bin = await BinModel.findOne({ sensorId }).populate("user");
+
+  if (!bin) {
+    return res.status(404).send({
+      status: "error",
+      message: `Bin with sensor ID ${sensorId} not found`,
+    });
+  }
+
+  return res.status(200).json({
+    message: "Bin Fetched successful",
+    data: { bin: bin.getPublicFields() },
+  });
+});
+
 // Fill Level Socket
+const binEventEmitter = BinModel.watch();
+
+io.on("connection", (socket) => {
+  console.log("User Connected");
+
+  // Get all bins and emit their fill percentage via sockets
+  BinModel.find({}).then((bins) => {
+    // Emit each bins fill percentage via the sensorID
+    bins.forEach((bin) => {
+      console.log(`Emitting ${bin.sensorId}: ${bin.fillPercentage}`);
+      socket.emit(bin.sensorId, bin.fillPercentage);
+    });
+  });
+
+  // Watch for changes in BinModel
+  binEventEmitter.on("change", (_) => {
+    // Get all bins and emit their fill percentage via sockets
+    BinModel.find({}).then((bins) => {
+      // Emit each bins fill percentage via the sensorID
+      bins.forEach((bin) => {
+        console.log(`Emitting ${bin.sensorId}: ${bin.fillPercentage}`);
+        socket.emit(bin.sensorId, bin.fillPercentage);
+      });
+    });
+  });
+
+  socket.on("disconnect", () => {
+    console.log("User Disconnected");
+  });
+});
 
 // Periodic Waste Level Notification
 app.post("/notify-user", async (req, res, next) => {
@@ -183,7 +243,7 @@ app.post("/notify-user", async (req, res, next) => {
     const { sensorId, fillPercentage } = req.body;
     console.log(`Bin Fill Percentage: ${fillPercentage}%`);
 
-    const bin = await BinModel.findOne({ sensorId: sensorId }).populate("user");
+    const bin = await BinModel.findOne({ sensorId }).populate("user");
 
     if (!bin) {
       return res.status(404).send({
@@ -192,24 +252,39 @@ app.post("/notify-user", async (req, res, next) => {
       });
     }
 
+    if (bin.user == null) {
+      return res.status(400).send({
+        status: "error",
+        message: "Bin has not been assigned to a user yet",
+      });
+    }
+
+    // Fetch FCM Access Token
+    const accessToken = await getAccessToken();
+
     // Send Firebase Notification
     await axios.post(
-      "https://fcm.googleapis.com/fcm/send",
+      "https://fcm.googleapis.com/v1/projects/ewaste-89269/messages:send",
       {
-        to: bin.user.token,
-        notification: {
-          body: `Your waste bin is ${fillPercentage}% full`,
-          title: "Waste Bin Level Alert",
+        message: {
+          token: bin.user.token,
+          notification: {
+            title: "Waste Bin Level Alert",
+            body: `Your waste bin is ${fillPercentage}% full`,
+          },
+          data: {
+            sensorId: sensorId,
+          },
         },
-        priority: "high",
       },
       {
         headers: {
           "Content-Type": "application/json",
-          Authorization: `key=${process.env.FCM_AUTH_TOKEN}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       }
     );
+
     return res.status(200).send({
       message: "Push Notification Sent",
     });
@@ -245,6 +320,6 @@ app.use((_req, res) => {
 
 const PORT = process.env.PORT || 7100;
 
-export default app.listen(PORT, () => {
+export default httpServer.listen(PORT, () => {
   logger.info(`E_Waste API listening on PORT: ${PORT}`);
 });
