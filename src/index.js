@@ -93,7 +93,7 @@ app.use("/docs", swaggerUI.serve, swaggerUI.setup(swaggerSpec));
 // Update bin fill level
 app.patch("/update-fill-level", async (req, res, next) => {
   try {
-    const { percentage, sensorId } = req.body;
+    const { percentage, sensorId, distance } = req.body;
     const bin = await BinModel.findOne({ sensorId });
 
     if (!bin) {
@@ -106,6 +106,7 @@ app.patch("/update-fill-level", async (req, res, next) => {
     // Update fill level
     await BinModel.updateOne({ sensorId }, { fillPercentage: percentage });
 
+    console.log(`Distance: ${distance}`);
     console.log(`New Fill Level: ${percentage}%`);
     res.status(200).send({
       message: "Fill level Updated",
